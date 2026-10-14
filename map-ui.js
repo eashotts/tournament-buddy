@@ -2,13 +2,37 @@
 (function(){
 const root=document.getElementById("player-map"),summary=document.getElementById("map-summary"),listing=document.getElementById("location-list"),buttons=document.getElementById("city-buttons"),tag=document.getElementById("map-source");
 if(!root)return;
-let map=null,markers=null;
-function clear(){summary.textContent="Search an event to view hometown information.";listing.replaceChildren();buttons.replaceChildren();tag.textContent="AWAITING SEARCH";if(markers)markers.clearLayers();}
-function update(players){clear();const grouped=BuddyLocations.group(players);tag.textContent="PDGA DATA";summary.textContent=grouped.locations.length+" cities · "+grouped.locations.reduce((n,g)=>n+g.count,0)+" players with hometowns · "+grouped.unknown+" unknown or undisclosed";
-if(!grouped.locations.length){listing.textContent="No hometown data was supplied by PDGA for this event.";return;}
-const note=document.createElement("p");note.className="meta";note.textContent="Locations below come from PDGA. Pins are not displayed until verified city-center coordinates are available.";listing.append(note);
-for(const g of grouped.locations){const btn=document.createElement("button");btn.type="button";btn.className="city-option";btn.textContent=g.city+", "+g.state+" · "+g.count;btn.addEventListener("click",()=>{buttons.querySelectorAll("button").forEach(b=>b.classList.remove("selected"));btn.classList.add("selected");listing.replaceChildren();const title=document.createElement("h3");title.textContent=g.city+", "+g.state;listing.append(title);for(const p of g.players){const row=document.createElement("div");row.className="map-player";const label=document.createElement("span");label.textContent=p.name+" · "+p.division;row.append(label);if(/^\d+$/.test(p.pdgaNumber)){const a=document.createElement("a");a.href="https://www.pdga.com/player/"+p.pdgaNumber;a.textContent="#"+p.pdgaNumber+" ↗";a.target="_blank";a.rel="noopener noreferrer";row.append(a);}listing.append(row);}});buttons.append(btn);}
+const cache=new Map();let map=null,layer=null,roster=[],matched=null,selected={states:new Set(),cities:new Set(),events:new Set()},generation=0;
+function el(t,c,v){const x=document.createElement(t);if(c)x.className=c;if(v!==undefined)x.textContent=v;return x;}
+function key(p){return [p.city,p.state].filter(Boolean).join(", ");}
+function clear(){generation++;roster=[];matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};summary.textContent="Search an event to view hometown information.";listing.replaceChildren();buttons.replaceChildren();tag.textContent="AWAITING SEARCH";if(layer)layer.clearLayers();}
+function filterMatched(matches){matched=matches;draw();}
+function update(players){roster=players;matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};draw();}
+function selectGroup(label,values,selection,changed){const d=el("details","filter-menu");d.append(el("summary","",label+" ("+selection.size+")"));const opts=el("div","filter-options");for(const [v,n] of values){const row=el("label","filter-check"),c=document.createElement("input");c.type="checkbox";c.checked=selection.has(v);c.addEventListener("change",()=>{c.checked?selection.add(v):selection.delete(v);changed();});row.append(c,document.createTextNode(v+" ("+n+")"));opts.append(row);}d.append(opts);return d;}
+function options(players,fn){const m=new Map();for(const p of players)for(const v of fn(p))if(v)m.set(v,(m.get(v)||0)+1);return [...m].sort((a,b)=>a[0].localeCompare(b[0]));}
+function groupPlayers(players){return BuddyLocations.group(players).locations;}
+function panel(g){listing.replaceChildren();listing.append(el("h3","",g.city+", "+g.state+" · "+g.count));for(const p of g.players){const row=el("div","map-player");row.append(el("span","",p.name+" · "+p.division));if(/^\d+$/.test(p.pdgaNumber)){const a=el("a","","#"+p.pdgaNumber+" ↗");a.href="https://www.pdga.com/player/"+p.pdgaNumber;a.target="_blank";a.rel="noopener noreferrer";row.append(a);}listing.append(row);}}
+function draw(){generation++;const token=generation;if(layer)layer.clearLayers();buttons.replaceChildren();listing.replaceChildren();if(!roster.length)return;
+tag.textContent="PDGA HOMETOWNS";
+const available=matched===null?roster:roster.filter(p=>matched.some(m=>m.pdgaNumber===p.pdgaNumber));
+const filtered=available.filter(p=>(!selected.states.size||selected.states.has(p.state||"Unknown"))&&(!selected.cities.size||selected.cities.has(key(p)||"Unknown"))&&(!selected.events.size||matched?.some(m=>m.pdgaNumber===p.pdgaNumber&&m.sharedEvents.some(e=>selected.events.has(e.eventId+" · "+e.name)))));
+const grouped=groupPlayers(filtered);const unknown=filtered.length-grouped.reduce((n,g)=>n+g.count,0);
+summary.textContent=filtered.length+" players · "+grouped.length+" cities · "+unknown+" undisclosed/unknown. "+(matched===null?"Full available Live roster.":"Only matching players.");
+const refresh=()=>draw();const controls=el("div","filter-bar");
+controls.append(selectGroup("State",options(available,p=>[p.state||"Unknown"]),selected.states,refresh),selectGroup("City",options(available,p=>[key(p)||"Unknown"]),selected.cities,refresh));
+if(matched!==null)controls.append(selectGroup("Event",options(matched,p=>p.sharedEvents.map(e=>e.eventId+" · "+e.name)),selected.events,refresh));
+const reset=el("button","city-option","Clear");reset.type="button";reset.addEventListener("click",()=>{selected={states:new Set(),cities:new Set(),events:new Set()};draw();});controls.append(reset);buttons.append(controls);
+if(!grouped.length){listing.textContent="No cities match the selected filters.";return;}
+const groups=el("div","map-city-list");for(const g of grouped){const b=el("button","city-option",g.city+", "+g.state+" · "+g.count);b.type="button";b.addEventListener("click",()=>{panel(g);const point=cache.get(g.city+"|"+g.state+"|"+g.country);if(point&&map)map.flyTo(point,10);});groups.append(b);}buttons.append(groups);
+listing.textContent="Select a city or numbered marker to see its players. Map coordinates are approximate city centers.";
+if(map)geocodeGroups(grouped,token);
 }
-if(typeof L!=="undefined"){map=L.map(root,{scrollWheelZoom:false}).setView([38,-96],4);markers=L.layerGroup().addTo(map);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);setTimeout(()=>map.invalidateSize(),200);}else root.textContent="Map tiles unavailable.";
-window.BuddyMapUI={update,clear};clear();
+async function geocode(g){const k=g.city+"|"+g.state+"|"+g.country;if(cache.has(k))return cache.get(k);
+try{const url="https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(g.city)+"&count=10&language=en&format=json";const response=await fetch(url);if(!response.ok)throw Error("Geocoding unavailable");const json=await response.json();const results=json.results||[];const state=g.state.toLowerCase(),country=g.country.toLowerCase();const match=results.find(x=>(x.admin1||"").toLowerCase()===state&&(x.country_code||"").toLowerCase()===country)||results.find(x=>(x.admin1||"").toLowerCase()===state)||null;
+const point=match?[match.latitude,match.longitude]:null;cache.set(k,point);return point;}catch{return null;}}
+async function geocodeGroups(groups,token){if(!layer)return;const bounds=[];let i=0;const queue=[...groups];async function worker(){while(queue.length&&token===generation){const g=queue.shift();const coords=await geocode(g);i++;if(token!==generation)return;if(coords){bounds.push(coords);const icon=L.divIcon({className:"buddy-marker",html:"<span>"+g.count+"</span>",iconSize:[42,42],iconAnchor:[21,21]});const marker=L.marker(coords,{icon});marker.playerCount=g.count;marker.bindTooltip(g.city+", "+g.state+" · "+g.count+" players");marker.on("click",()=>panel(g));layer.addLayer(marker);}if(i%15===0||i===groups.length)summary.textContent=groups.length+" cities · "+i+" locations checked · "+bounds.length+" mapped (unmatched cities remain listed)";}}
+await Promise.all(Array.from({length:3},worker));if(token===generation&&bounds.length)map.fitBounds(bounds,{padding:[35,35],maxZoom:8});}
+if(typeof L!=="undefined"){map=L.map(root,{scrollWheelZoom:false}).setView([38,-96],4);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+layer=typeof L.markerClusterGroup==="function"?L.markerClusterGroup({iconCreateFunction(cluster){const n=cluster.getAllChildMarkers().reduce((sum,m)=>sum+(m.playerCount||0),0);return L.divIcon({html:"<span>"+n+"</span>",className:"buddy-marker buddy-cluster",iconSize:[48,48],iconAnchor:[24,24]});}}):L.layerGroup();map.addLayer(layer);setTimeout(()=>map.invalidateSize(),200);}else root.textContent="Map tiles unavailable.";
+window.BuddyMapUI={clear,update,filterMatched};clear();
 })();
