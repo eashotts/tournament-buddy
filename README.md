@@ -22,3 +22,6 @@ The result has `matches` sorted by descending shared event count and same-divisi
 
 ## Hosting and data
 GitHub Pages serves static files; it cannot run Python or securely store API credentials. To go live, a separate authorized data integration and backend must retrieve upcoming registrants and historical participation, then supply normalized records to the matching engine. Do not put PDGA API keys in public JavaScript. The earlier Apps Script approach received 403 from PDGA pages.
+
+## Player hometown map
+The map uses Leaflet and OpenStreetMap tiles with clickable city-count markers. City selection expands a player list with divisions and PDGA links, and provides an Open in Google Maps link. The grouping engine in locations.js deduplicates player numbers and groups city/state/country. Demo city-center coordinates in demo-coordinates.js are approximate and fictional. Live registrant data and city geocoding remain pending. No player street addresses are displayed. Run node tests/locations.test.js for grouping tests.
