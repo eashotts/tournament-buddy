@@ -25,3 +25,6 @@ GitHub Pages serves static files; it cannot run Python or securely store API cre
 
 ## Player hometown map
 The map uses Leaflet and OpenStreetMap tiles with clickable city-count markers. City selection expands a player list with divisions and PDGA links, and provides an Open in Google Maps link. The grouping engine in locations.js deduplicates player numbers and groups city/state/country. Demo city-center coordinates in demo-coordinates.js are approximate and fictional. Live registrant data and city geocoding remain pending. No player street addresses are displayed. Run node tests/locations.test.js for grouping tests.
+
+## Registration roster workspace
+The public app now supports manual, permission-based roster preview from pasted comma/tab-separated `Division, Name, PDGA number, Status` rows (optional city/state). The browser parses rows locally using `roster-import.js` and displays separate registered/waitlisted totals and PDGA links. It does **not** automatically fetch or scrape Disc Golf Scene, and the imported roster is not yet fed into the demo map or buddy matcher. This is an intermediate adapter awaiting an authorized feed. No contact details are imported.
