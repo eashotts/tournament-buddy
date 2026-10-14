@@ -28,3 +28,8 @@ The map uses Leaflet and OpenStreetMap tiles with clickable city-count markers. 
 
 ## Registration roster workspace
 The public app now supports manual, permission-based roster preview from pasted comma/tab-separated `Division, Name, PDGA number, Status` rows (optional city/state). The browser parses rows locally using `roster-import.js` and displays separate registered/waitlisted totals and PDGA links. It does **not** automatically fetch or scrape Disc Golf Scene, and the imported roster is not yet fed into the demo map or buddy matcher. This is an intermediate adapter awaiting an authorized feed. No contact details are imported.
+
+## Official PDGA integration (experimental)
+`pdga-data.js` now supports the documented public PDGA Live event metadata and per-division standings endpoints. The search form can attempt a Live roster lookup and offers a separate action to compare histories using the member results endpoint supplied directly by PDGA. **This is not yet production verified.** Live standings may be incomplete before an event starts; the undocumented historical endpoint's actual JSON schema and browser CORS behavior remain to be tested. Failures are shown to the user, and missing histories are excluded from the comparison rather than interpreted as no overlap. For large fields, per-player history requests can take time and may be throttled. The hometown map still shows fictional demonstration locations, not live PDGA data.
+
+The privately shared unofficial PDGA API documentation is intentionally NOT committed to this public repository. No API credentials are stored here. A production integration may require an authorized backend for CORS, caching, pagination, and rate limiting. Respect PDGA location privacy flags and null hometown fields.
