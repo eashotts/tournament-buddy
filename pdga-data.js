@@ -28,7 +28,7 @@ function historyRows(payload){
   const id=String(row.tournId??row.TournID??row.eventId??row.event_id??"").trim();
   if(!/^[1-9][0-9]*$/.test(id))continue;
   const tournament=row.tournament&&typeof row.tournament==="object"?row.tournament:{};
-  const name=String(tournament.name??tournament.tournName??tournament.eventName??row.eventName??row.name??"Event #"+id);
+  const name=String(tournament.name??tournament.tournName??tournament.eventName??tournament.tournamentName??tournament.title??tournament.event_name??row.eventName??row.name??"Event #"+id);
   const date=String(tournament.startDate??tournament.start_date??row.startDate??row.date??"");
   const division=String(row.division?.code??row.division?.division??row.division??"");
   const key=id+"|"+division;if(seen.has(key))continue;seen.add(key);
