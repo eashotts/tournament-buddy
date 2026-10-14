@@ -12,8 +12,18 @@ const all=[];let succeeded=0;const failed=[];for(let i=0;i<divisions.length;i+=4
 if(!succeeded)throw Error("No PDGA Live standings available. This event may not have published Live scoring yet.");
 const seen=new Set();const players=all.filter(p=>{if(seen.has(p.pdgaNumber))return false;seen.add(p.pdgaNumber);return true;});
 return {eventId:id,players,divisions,failed,complete:failed.length===0,source:"PDGA Live standings (not verified pre-event registration list)"};}
-function historyRows(payload){const data=payload?.data??payload;const arr=Array.isArray(data)?data:Array.isArray(data?.results)?data.results:Array.isArray(data?.Results)?data.Results:null;if(!arr)throw Error("Historical endpoint returned an unrecognized structure; inspect response schema before enabling matching.");
-return arr.map(row=>({eventId:row.eventId??row.EventID??row.TournID??row.tournament_id,name:row.name??row.EventName??row.TournName??"",date:row.date??row.StartDate??"",division:row.division??row.Division??""})).filter(row=>/^\d+$/.test(String(row.eventId??""))); }
+function historyRows(payload){
+const data=payload?.data??payload;
+function arrays(value,depth=0){if(depth>3||!value||typeof value!=="object")return [];if(Array.isArray(value))return [value];return Object.values(value).flatMap(v=>arrays(v,depth+1));}
+const candidates=arrays(data).filter(a=>a.length&&a.some(x=>x&&typeof x==="object"&&!Array.isArray(x)));
+const keys=["eventId","event_id","eventID","EventID","EventId","TournID","TournId","tournId","tourn_id","tournament_id","tournamentId","TournamentID","pdga_event_id","pdgaEventId","event"];
+function idFrom(row){for(const key of keys){let value=row[key];if(value&&typeof value==="object")value=value.id??value.eventId??value.event_id??value.TournID;if(value!==undefined&&value!==null){const m=String(value).match(/^(?:https?:\\/\\/[^/]+\\/tour\\/event\\/)?([1-9]\\d*)\\/?$/);if(m)return m[1];}}return null;}
+const arr=candidates.find(a=>a.some(row=>row&&typeof row==="object"&&idFrom(row)))||candidates[0];
+if(!arr){const top=Object.keys(data&&typeof data==="object"?data:{});throw Error("Historical response has no result rows (top-level fields: "+top.slice(0,12).join(", ")+").");}
+const normalized=arr.map(row=>{if(!row||typeof row!=="object")return null;const eventId=idFrom(row);if(!eventId)return null;return {eventId,name:String(row.name??row.event_name??row.eventName??row.EventName??row.TournName??row.tournament_name??row.tournamentName??row.event?.name??""),date:String(row.date??row.event_date??row.start_date??row.startDate??row.StartDate??""),division:String(row.division??row.division_code??row.divisionCode??row.Division??row.DivisionCode??"")};}).filter(Boolean);
+if(!normalized.length){const sample=arr.find(x=>x&&typeof x==="object");throw Error("History response fields need mapping. First row keys: "+Object.keys(sample||{}).slice(0,25).join(", ")+". No personal values were included.");}
+return normalized;
+}
 async function history(playerId){if(!/^[1-9]\d*$/.test(String(playerId)))throw Error("Invalid PDGA number");return historyRows(await json("https://www.pdga.com/api/v1/feat/members/"+playerId+"/results"));}
 return {eventId,divisionCodes,extractRows,registration,historyRows,history};
 });
