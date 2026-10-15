@@ -2,10 +2,10 @@
 (function(){
 const root=document.getElementById("player-map"),summary=document.getElementById("map-summary"),listing=document.getElementById("location-list"),buttons=document.getElementById("city-buttons"),tag=document.getElementById("map-source");
 if(!root)return;
-const cache=new Map();let map=null,layer=null,roster=[],matched=null,selected={states:new Set(),cities:new Set(),events:new Set()},generation=0;
+const cache=new Map();let map=null,layer=null,roster=[],matched=null,selected={states:new Set(),cities:new Set(),events:new Set()},generation=0,travelLine=null;
 function el(t,c,v){const x=document.createElement(t);if(c)x.className=c;if(v!==undefined)x.textContent=v;return x;}
 function key(p){return [p.city,p.state].filter(Boolean).join(", ");}
-function clear(){generation++;roster=[];matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};summary.textContent="Search an event to view hometown information.";listing.replaceChildren();buttons.replaceChildren();tag.textContent="AWAITING SEARCH";if(layer)layer.clearLayers();}
+function clear(){setTravelRoute(null);generation++;roster=[];matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};summary.textContent="Search an event to view hometown information.";listing.replaceChildren();buttons.replaceChildren();tag.textContent="AWAITING SEARCH";if(layer)layer.clearLayers();}
 function filterMatched(matches){matched=matches;draw();}
 function update(players){roster=players;matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};draw();}
 function selectGroup(label,values,selection,changed){const d=el("details","filter-menu");d.append(el("summary","",label+" ("+selection.size+")"));const opts=el("div","filter-options");for(const [v,n] of values){const row=el("label","filter-check"),c=document.createElement("input");c.type="checkbox";c.checked=selection.has(v);c.addEventListener("change",()=>{c.checked?selection.add(v):selection.delete(v);changed();});row.append(c,document.createTextNode(v+" ("+n+")"));opts.append(row);}d.append(opts);return d;}
@@ -56,5 +56,6 @@ async function geocodeGroups(groups,token){if(!layer)return;const bounds=[];let 
 await Promise.all(Array.from({length:3},worker));if(token===generation&&bounds.length){map.fitBounds(bounds,{padding:[35,35],maxZoom:8});if(window.BuddyResults){const coords=new Map();for(const g of groups){const pt=cache.get(g.city+"|"+g.state+"|"+g.country);if(pt)coords.set(g.city+"|"+g.state,pt);}window.BuddyResults.setCoordinates(coords);}}}
 if(typeof L!=="undefined"){map=L.map(root,{scrollWheelZoom:false}).setView([38,-96],4);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
 layer=typeof L.markerClusterGroup==="function"?L.markerClusterGroup({iconCreateFunction(cluster){const n=cluster.getAllChildMarkers().reduce((sum,m)=>sum+(m.playerCount||0),0);return L.divIcon({html:"<span>"+n+"</span>",className:"buddy-marker buddy-cluster",iconSize:[48,48],iconAnchor:[24,24]});}}):L.layerGroup();map.addLayer(layer);setTimeout(()=>map.invalidateSize(),200);}else root.textContent="Map tiles unavailable.";
-window.BuddyMapUI={clear,update,filterMatched};clear();
+function setTravelRoute(points){if(travelLine&&map){map.removeLayer(travelLine);travelLine=null;}if(map&&points?.length){travelLine=L.polyline(points,{color:"#66d9ef",weight:5,opacity:.85,dashArray:"10 6"}).addTo(map);map.fitBounds(travelLine.getBounds(),{padding:[30,30]});}}
+window.BuddyMapUI={clear,update,filterMatched,setTravelRoute};clear();
 })();
