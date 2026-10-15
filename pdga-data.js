@@ -11,7 +11,7 @@ async function registration(event){const id=eventId(event);const metadata=await 
 const all=[];let succeeded=0;const failed=[];for(let i=0;i<divisions.length;i+=4){const batch=divisions.slice(i,i+4);await Promise.all(batch.map(async code=>{try{const data=await json(base+"/live_results_fetch_standings?TournID="+id+"&Division="+encodeURIComponent(code));all.push(...extractRows(data,code));succeeded++;}catch(err){failed.push(code+": "+err.message);}}));}
 if(!succeeded)throw Error("No PDGA Live standings available. This event may not have published Live scoring yet.");
 const seen=new Set();const players=all.filter(p=>{if(seen.has(p.pdgaNumber))return false;seen.add(p.pdgaNumber);return true;});
-return {eventId:id,players,divisions,failed,complete:failed.length===0,source:"PDGA Live standings (not verified pre-event registration list)"};}
+return {eventId:id,players,divisions,failed,metadata,complete:failed.length===0,source:"PDGA Live standings (not verified pre-event registration list)"};}
 function historyRows(payload){
  const data=payload?.data??payload;
  function collect(value,depth=0){
