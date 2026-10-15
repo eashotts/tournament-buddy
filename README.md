@@ -1,35 +1,53 @@
 # Tournament Buddy
 
-A free GitHub Pages frontend for discovering players at an upcoming PDGA tournament who have participated in the same historical events as you.
+**Live prototype:** https://eashotts.github.io/tournament-buddy/
 
-## Current status
-- The matching engine in `matching.js` is **implemented** and independently testable.
-- The website runs the engine against explicitly **fictional** `demo-data.js` records.
-- The live search form validates PDGA URLs and player numbers but does **not** fetch live PDGA data or claim to produce real matches.
-- Waiting for PDGA to confirm approved registration and player historical participation access.
+Tournament Buddy is an **independent, experimental disc golf travel-planning project**. It helps a player discover familiar competitors at an upcoming PDGA tournament and explore potential carpools and shared lodging.
 
-## Matching engine contract
-Call `TournamentBuddy.matchBuddies({playerId, registrants, historyByPlayer})`.
+It is **not operated or endorsed by PDGA**. PDGA player and tournament data are attributed to PDGA, with links to source player/event pages.
 
-`registrants`: array of `{pdgaNumber, name, city, state, division}`.
+## Try the prototype
 
-`historyByPlayer`: object keyed by PDGA number, each value an array of `{eventId, name, date, division}`.
+1. Enter a PDGA tournament URL, such as `https://www.pdga.com/tour/event/97743`.
+2. Enter your PDGA player number.
+3. Select **Find my buddies**. The app attempts to retrieve available PDGA Live standings and each player's historical results.
+4. Explore the familiar-player list, shared event histories, filters, approximate hometown map, familiarity scores, and optional driving-corridor planner.
+5. Use the lodging form to open external hotel or campsite searches.
 
-The result has `matches` sorted by descending shared event count and same-division count. Each match contains `sharedEvents` with `sameDivision` flags, plus `sharedCount` and `sameDivisionCount`. Event IDs are canonicalized to numeric strings. Duplicate entries for the same event are merged, retaining division evidence. A registrant with missing history is **skipped**, not counted as zero overlap; the result reports `skippedMissingHistory`.
+**Important:** The app currently uses PDGA Live *standings*, **not a verified complete pre-event registration roster**. Before live scoring is published, some events may return no players or incomplete coverage. Historical-results requests may fail, be rate-limited, or be blocked by browser cross-origin restrictions. Missing histories are excluded rather than treated as nonmatches. The app does not claim to verify live travel plans, carpool availability, lodging prices, or reservations.
 
-## Test
-`node tests/matching.test.js`
+## Features
 
-## Hosting and data
-GitHub Pages serves static files; it cannot run Python or securely store API credentials. To go live, a separate authorized data integration and backend must retrieve upcoming registrants and historical participation, then supply normalized records to the matching engine. Do not put PDGA API keys in public JavaScript. The earlier Apps Script approach received 403 from PDGA pages.
+- Single-click tournament and historical participation comparison across divisions
+- Player links to PDGA, shared event details, and event name lookups
+- First ten familiar players initially, with **Load 10 more**
+- Sort by approximate hometown proximity, shared tournaments, same-division events, recent overlaps, or a recency-weighted familiarity score
+- Filter players and hometown map by state, city, and shared event
+- Approximate city-center map using Leaflet, OpenStreetMap, and geocoding
+- Optional driving-route corridor (25/50/100 miles) using an external routing service
+- External hotel, cabin, and RV campsite discovery links
 
-## Player hometown map
-The map uses Leaflet and OpenStreetMap tiles with clickable city-count markers. City selection expands a player list with divisions and PDGA links, and provides an Open in Google Maps link. The grouping engine in locations.js deduplicates player numbers and groups city/state/country. Demo city-center coordinates in demo-coordinates.js are approximate and fictional. Live registrant data and city geocoding remain pending. No player street addresses are displayed. Run node tests/locations.test.js for grouping tests.
+**Familiarity score:** 4 points for a shared tournament within the past year, 2 for one 1–3 years ago, 1 for an older or undated event, plus 2 points when both players competed in the same division. This is an informal comparison aid, not a PDGA metric.
 
-## Registration roster workspace
-The public app now supports manual, permission-based roster preview from pasted comma/tab-separated `Division, Name, PDGA number, Status` rows (optional city/state). The browser parses rows locally using `roster-import.js` and displays separate registered/waitlisted totals and PDGA links. It does **not** automatically fetch or scrape Disc Golf Scene, and the imported roster is not yet fed into the demo map or buddy matcher. This is an intermediate adapter awaiting an authorized feed. No contact details are imported.
+**Privacy:** Public hometown city/state data are used only at approximate city-center granularity. No home addresses, direct messages, personal contact details, or user accounts are collected by this frontend.
 
-## Official PDGA integration (experimental)
-`pdga-data.js` now supports the documented public PDGA Live event metadata and per-division standings endpoints. The search form can attempt a Live roster lookup and offers a separate action to compare histories using the member results endpoint supplied directly by PDGA. **This is not yet production verified.** Live standings may be incomplete before an event starts; the undocumented historical endpoint's actual JSON schema and browser CORS behavior remain to be tested. Failures are shown to the user, and missing histories are excluded from the comparison rather than interpreted as no overlap. For large fields, per-player history requests can take time and may be throttled. The hometown map still shows fictional demonstration locations, not live PDGA data.
+## Technical overview
 
-The privately shared unofficial PDGA API documentation is intentionally NOT committed to this public repository. No API credentials are stored here. A production integration may require an authorized backend for CORS, caching, pagination, and rate limiting. Respect PDGA location privacy flags and null hometown fields.
+Static GitHub Pages application built with vanilla JavaScript. Main modules: `pdga-data.js` (live data adapters), `matching.js` (event matching), `results-ui.js` (familiar-player results), `map-ui.js` and `locations.js` (hometowns), `travel-ui.js` (route corridor), and `lodging-ui.js` (external lodging searches).
+
+The browser attempts to call:
+- PDGA Live event metadata and per-division standings endpoints
+- PDGA historical member results endpoint
+- Public geocoding and driving-route services
+
+Browser access, response formats, and request limits must be confirmed with PDGA before relying on this as a production integration. No private PDGA documentation or API keys are included in the repository. Any future credentialed integration should use a secure backend, not client-side secrets.
+
+## Developer review requested
+
+Feedback is particularly welcome on:
+- Whether PDGA Live standings are appropriate for discovering **upcoming registrants**, or whether there is an approved registration feed
+- Historical results API schema, browser CORS behavior, pagination, and rate limits
+- Appropriate PDGA logo/attribution usage
+- Recommended caching and privacy safeguards before broader public release
+
+This repository is a prototype and has not undergone comprehensive live browser or production security testing.
