@@ -12,12 +12,14 @@ document.getElementById("search").addEventListener("submit",async e=>{
  if(window.BuddyMapUI)window.BuddyMapUI.clear();
  if(window.BuddyLodging)window.BuddyLodging.setEvent(url);
  try{
-  const eventId=PDGAData.eventId(url);status.textContent="Step 1 of 2: loading PDGA Live players for event #"+eventId+"…";
-  const roster=await PDGAData.registration(url);if(token!==searchToken)return;
+  status.textContent=PDGAData.discGolfSceneUrl(url)?"Finding the linked PDGA event on Disc Golf Scene…":"Validating PDGA event link…";
+  const pdgaUrl=await PDGAData.resolveEventUrl(url);if(token!==searchToken)return;
+  const eventId=PDGAData.eventId(pdgaUrl);status.textContent="Step 1 of 2: loading PDGA Live players for event #"+eventId+"…";
+  const roster=await PDGAData.registration(pdgaUrl);if(token!==searchToken)return;
   const summary=el("p","meta",roster.players.length+" players · "+roster.divisions.length+" divisions · PDGA Live standings (not a confirmed complete registration roster)");
   document.getElementById("live-roster").append(summary);
   if(window.BuddyMapUI)window.BuddyMapUI.update(roster.players);
-  if(window.BuddyLodging)window.BuddyLodging.setEvent(url,roster.metadata);
+  if(window.BuddyLodging)window.BuddyLodging.setEvent(pdgaUrl,roster.metadata);
   if(window.BuddyTravel)window.BuddyTravel.setEvent(roster.players,player,roster.metadata);
   status.textContent="Step 2 of 2: comparing tournament histories for "+roster.players.length+" players…";
   const histories={};histories[player]=await PDGAData.history(player);if(!histories[player].length)throw Error("No recognizable event IDs in your history response.");
