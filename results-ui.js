@@ -5,10 +5,27 @@ let all=[],active={states:new Set(),cities:new Set(),events:new Set()},home=null
 const node=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=txt;return x;};
 function key(p){return [p.city,p.state].filter(Boolean).join(", ");}
 function choices(label,items,set,changed){const d=node("details","filter-menu"),s=node("summary","",label+" ("+set.size+")");d.append(s);const body=node("div","filter-options");for(const [value,count] of items){const l=node("label","filter-check"),c=document.createElement("input");c.type="checkbox";c.checked=set.has(value);c.addEventListener("change",()=>{c.checked?set.add(value):set.delete(value);changed();});l.append(c,document.createTextNode(" "+value+" ("+count+")"));body.append(l);}d.append(body);return d;}
+function eventChoices(players,selection,changed){
+ const events=new Map();
+ for(const p of players)for(const e of p.sharedEvents||[]){
+  const id=String(e.eventId),known=e.name&&!/^Event #/i.test(e.name)&&e.name!=="PDGA tournament";
+  if(!events.has(id))events.set(id,{count:0,name:known?e.name:null});
+  const entry=events.get(id);entry.count++;if(known)entry.name=e.name;
+ }
+ const details=node("details","filter-menu"),summary=node("summary","","Events ("+selection.size+")"),body=node("div","filter-options");
+ details.append(summary);
+ for(const [id,entry] of [...events].sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")||a[0].localeCompare(b[0]))){
+  const row=node("label","filter-check"),check=document.createElement("input"),label=node("span","",entry.name||"Loading tournament name…");
+  check.type="checkbox";check.checked=selection.has(id);check.addEventListener("change",()=>{check.checked?selection.add(id):selection.delete(id);summary.textContent="Events ("+selection.size+")";changed();});
+  row.append(check,label);body.append(row);
+  if(!entry.name){PDGAData.eventTitle(id).then(title=>{label.textContent=title||"PDGA event #"+id;}).catch(()=>{label.textContent="PDGA event #"+id;});}
+ }
+ details.append(body);return details;
+}
 function options(items,fn){const m=new Map();items.forEach(p=>fn(p).forEach(v=>{if(v)m.set(v,(m.get(v)||0)+1);}));return [...m].sort((a,b)=>a[0].localeCompare(b[0]));}
-function refreshControls(){filters.replaceChildren();if(!all.length)return;const changed=()=>{shown=pageSize;refreshControls();draw();syncMap();};filters.append(choices("States",options(all,p=>[p.state||"Unknown"]),active.states,changed),choices("Cities",options(all,p=>[key(p)||"Unknown"]),active.cities,changed),choices("Shared events",options(all,p=>p.sharedEvents.map(e=>e.eventId+" · "+e.name)),active.events,changed));
+function refreshControls(){filters.replaceChildren();if(!all.length)return;const changed=()=>{shown=pageSize;refreshControls();draw();syncMap();};filters.append(choices("States",options(all,p=>[p.state||"Unknown"]),active.states,changed),choices("Cities",options(all,p=>[key(p)||"Unknown"]),active.cities,changed),eventChoices(all,active.events,changed));
 const reset=node("button","city-option","Clear filters");reset.type="button";reset.addEventListener("click",()=>{active={states:new Set(),cities:new Set(),events:new Set()};changed();});filters.append(reset);}
-function matches(p){return (!active.states.size||active.states.has(p.state||"Unknown"))&&(!active.cities.size||active.cities.has(key(p)||"Unknown"))&&(!active.events.size||p.sharedEvents.some(e=>active.events.has(e.eventId+" · "+e.name)));}
+function matches(p){return (!active.states.size||active.states.has(p.state||"Unknown"))&&(!active.cities.size||active.cities.has(key(p)||"Unknown"))&&(!active.events.size||p.sharedEvents.some(e=>active.events.has(String(e.eventId))));}
 function distance(p){if(!home)return Infinity;const a=coordinates.get(home.city+"|"+home.state),b=coordinates.get(p.city+"|"+p.state);if(!a||!b)return Infinity;const rad=Math.PI/180,lat=(b[0]-a[0])*rad,lon=(b[1]-a[1])*rad,h=Math.sin(lat/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(lon/2)**2;return 3958.8*2*Math.asin(Math.min(1,Math.sqrt(h)));}
 function priority(p){if(!home||!home.state)return 2;if(p.city&&home.city&&p.city.toLowerCase()===home.city.toLowerCase()&&p.state===home.state)return 0;if(p.state===home.state)return 1;return 2;}
 function latest(p){const dates=p.sharedEvents.map(e=>Date.parse(e.date||"")).filter(Number.isFinite);return dates.length?Math.max(...dates):-Infinity;}
