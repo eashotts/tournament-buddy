@@ -19,7 +19,10 @@ const filtered=available.filter(p=>(!selected.states.size||selected.states.has(p
 const grouped=groupPlayers(filtered);const unknown=filtered.length-grouped.reduce((n,g)=>n+g.count,0);
 summary.textContent=filtered.length+" players · "+grouped.length+" cities · "+unknown+" undisclosed/unknown. "+(matched===null?"Full available Live roster.":"Only matching players.");
 const refresh=()=>draw();const controls=el("div","filter-bar");
-controls.append(selectGroup("State",options(available,p=>[p.state||"Unknown"]),selected.states,refresh),selectGroup("City",options(available,p=>[key(p)||"Unknown"]),selected.cities,refresh));
+const cityCandidates=selected.states.size?available.filter(p=>selected.states.has(p.state||"Unknown")):available;
+const validCities=new Set(cityCandidates.map(p=>key(p)||"Unknown"));
+for(const city of [...selected.cities])if(!validCities.has(city))selected.cities.delete(city);
+controls.append(selectGroup("State",options(available,p=>[p.state||"Unknown"]),selected.states,refresh),selectGroup("City",options(cityCandidates,p=>[key(p)||"Unknown"]),selected.cities,refresh));
 if(matched!==null)controls.append(selectGroup("Event",options(matched,p=>p.sharedEvents.map(e=>e.eventId+" · "+e.name)),selected.events,refresh));
 const reset=el("button","city-option","Clear");reset.type="button";reset.addEventListener("click",()=>{selected={states:new Set(),cities:new Set(),events:new Set()};draw();});controls.append(reset);buttons.append(controls);
 if(!grouped.length){listing.textContent="No cities match the selected filters.";return;}
