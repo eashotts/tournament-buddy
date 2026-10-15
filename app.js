@@ -4,8 +4,8 @@ function el(tag,className,text){const node=document.createElement(tag);if(classN
 let searchToken=0;
 document.getElementById("search").addEventListener("submit",async e=>{
  e.preventDefault();const token=++searchToken;
- const form=new FormData(e.currentTarget),url=String(form.get("event")||""),player=String(form.get("player")||"");
- if(!/^[1-9]\d*$/.test(player)){status.textContent="Enter a valid PDGA number.";return;}
+ let eventId,player;try{eventId=BuddyLookup.eventId();player=BuddyLookup.playerId();}catch(err){status.textContent=err.message;return;}
+ const url="https://www.pdga.com/tour/event/"+eventId;
  const button=e.currentTarget.querySelector("button");button.disabled=true;button.textContent="Finding buddies…";
  BuddyResults.clear();document.getElementById("count-matches").textContent="—";document.getElementById("count-events").textContent="—";
  document.getElementById("result-label").textContent="SEARCHING";document.getElementById("live-roster").replaceChildren();
