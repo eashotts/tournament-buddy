@@ -15,7 +15,7 @@ function setEvent(roster,playerId,metadata){reset();const self=roster.find(p=>p.
 function reset(){route=null;originPoint=null;coordinates.clear();only.checked=false;window.BuddyMapUI?.setTravelRoute(null);refresh();}
 async function geocode(place){const response=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+encodeURIComponent(place),{headers:{Accept:"application/json"}});if(!response.ok)throw Error("Location search unavailable");const rows=await response.json();if(!rows.length)throw Error("Could not locate "+place);return [Number(rows[0].lat),Number(rows[0].lon)];}
 document.getElementById("route-form").addEventListener("submit",async e=>{e.preventDefault();const button=e.currentTarget.querySelector("button");button.disabled=true;status.textContent="Looking up cities and calculating a driving route…";try{
- const [from,to]=await Promise.all([geocode(origin.value.trim()),geocode(destination.value.trim())]);
+ const from=await geocode(origin.value.trim());await new Promise(resolve=>setTimeout(resolve,1100));const to=await geocode(destination.value.trim());
  const url="https://router.project-osrm.org/route/v1/driving/"+from[1]+","+from[0]+";"+to[1]+","+to[0]+"?overview=full&geometries=geojson";
  const response=await fetch(url);if(!response.ok)throw Error("Driving route service unavailable");
  const data=await response.json();const points=data.routes?.[0]?.geometry?.coordinates;
