@@ -1,7 +1,7 @@
 "use strict";
 (function(){
 const host=document.getElementById("cards"),filters=document.getElementById("result-filters");
-let all=[],active={states:new Set(),cities:new Set(),events:new Set()},home=null,coordinates=new Map();
+let all=[],active={states:new Set(),cities:new Set(),events:new Set()},home=null,coordinates=new Map(),sortMode="nearby";
 const node=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=txt;return x;};
 function key(p){return [p.city,p.state].filter(Boolean).join(", ");}
 function choices(label,items,set,changed){const d=node("details","filter-menu"),s=node("summary","",label+" ("+set.size+")");d.append(s);const body=node("div","filter-options");for(const [value,count] of items){const l=node("label","filter-check"),c=document.createElement("input");c.type="checkbox";c.checked=set.has(value);c.addEventListener("change",()=>{c.checked?set.add(value):set.delete(value);changed();});l.append(c,document.createTextNode(" "+value+" ("+count+")"));body.append(l);}d.append(body);return d;}
@@ -11,7 +11,15 @@ const reset=node("button","city-option","Clear filters");reset.type="button";res
 function matches(p){return (!active.states.size||active.states.has(p.state||"Unknown"))&&(!active.cities.size||active.cities.has(key(p)||"Unknown"))&&(!active.events.size||p.sharedEvents.some(e=>active.events.has(e.eventId+" · "+e.name)));}
 function distance(p){if(!home)return Infinity;const a=coordinates.get(home.city+"|"+home.state),b=coordinates.get(p.city+"|"+p.state);if(!a||!b)return Infinity;const rad=Math.PI/180,lat=(b[0]-a[0])*rad,lon=(b[1]-a[1])*rad,h=Math.sin(lat/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(lon/2)**2;return 3958.8*2*Math.asin(Math.min(1,Math.sqrt(h)));}
 function priority(p){if(!home||!home.state)return 2;if(p.city&&home.city&&p.city.toLowerCase()===home.city.toLowerCase()&&p.state===home.state)return 0;if(p.state===home.state)return 1;return 2;}
-function draw(){host.replaceChildren();const visible=all.filter(matches).sort((a,b)=>(Number.isFinite(distance(a))&&Number.isFinite(distance(b))?distance(a)-distance(b):priority(a)-priority(b))||b.sharedCount-a.sharedCount||b.sameDivisionCount-a.sameDivisionCount||a.name.localeCompare(b.name));
+function latest(p){const dates=p.sharedEvents.map(e=>Date.parse(e.date||"")).filter(Number.isFinite);return dates.length?Math.max(...dates):-Infinity;}
+function compare(a,b){
+ const fallback=b.sharedCount-a.sharedCount||b.sameDivisionCount-a.sameDivisionCount||a.name.localeCompare(b.name);
+ if(sortMode==="recent")return latest(b)-latest(a)||fallback;
+ if(sortMode==="shared")return fallback;
+ if(sortMode==="division")return b.sameDivisionCount-a.sameDivisionCount||fallback;
+ return (Number.isFinite(distance(a))&&Number.isFinite(distance(b))?distance(a)-distance(b):priority(a)-priority(b))||fallback;
+}
+function draw(){host.replaceChildren();const visible=all.filter(matches).sort(compare);
 document.getElementById("visible-count").textContent=visible.length+" of "+all.length+" players shown";
 const table=node("table","buddy-table");const thead=document.createElement("thead"),head=document.createElement("tr");for(const text of ["Player","Hometown","Shared events","Same division","Details"]){head.append(node("th","",text));}thead.append(head);table.append(thead);const tbody=document.createElement("tbody");
 for(const p of visible){const tr=document.createElement("tr");tr.className="buddy-main";const name=node("td");const link=node("a","",p.name);link.href="https://www.pdga.com/player/"+encodeURIComponent(p.pdgaNumber);link.target="_blank";link.rel="noopener noreferrer";name.append(link,node("div","meta","#"+p.pdgaNumber+" · "+p.registeredDivision));tr.append(name,node("td","",key(p)||"Undisclosed"),node("td","",String(p.sharedCount)),node("td","",String(p.sameDivisionCount)));
@@ -23,8 +31,9 @@ table.append(tbody);host.append(table);if(!visible.length)host.append(node("p","
 
 }
 function syncMap(){if(window.BuddyMapUI)window.BuddyMapUI.filterMatched(all.filter(matches));}
-function render(result,roster,playerId){all=result.matches;active={states:new Set(),cities:new Set(),events:new Set()};const self=roster.find(p=>p.pdgaNumber===playerId);home=self?.city&&self?.state?{city:self.city,state:self.state}:null;document.getElementById("sort-note").textContent=home?"Nearby first: "+home.city+", "+home.state+" (same city, then state; precise distance unavailable).":"Home location unavailable from PDGA; sorting by shared events, then same-division overlaps.";document.getElementById("count-matches").textContent=all.length;document.getElementById("count-events").textContent=Math.max(0,...all.map(p=>p.sharedCount));refreshControls();draw();syncMap();}
+function setSort(value){sortMode=value;draw();}\nfunction render(result,roster,playerId){all=result.matches;active={states:new Set(),cities:new Set(),events:new Set()};const self=roster.find(p=>p.pdgaNumber===playerId);home=self?.city&&self?.state?{city:self.city,state:self.state}:null;document.getElementById("sort-note").textContent=home?"Nearby first: "+home.city+", "+home.state+" (same city, then state; precise distance unavailable).":"Home location unavailable from PDGA; sorting by shared events, then same-division overlaps.";document.getElementById("count-matches").textContent=all.length;document.getElementById("count-events").textContent=Math.max(0,...all.map(p=>p.sharedCount));refreshControls();draw();syncMap();}
 function setCoordinates(map){coordinates=map; if(all.length){document.getElementById("sort-note").textContent=home?"Sorted by approximate hometown distance where mapped, then shared events and same-division overlaps. Unmapped cities use city/state proximity tiers.":"Home location unavailable from PDGA; sorted by shared events and same-division overlaps.";draw();}}
 function clear(){all=[];active={states:new Set(),cities:new Set(),events:new Set()};host.replaceChildren();filters.replaceChildren();document.getElementById("visible-count").textContent="";document.getElementById("sort-note").textContent="";}
-window.BuddyResults={render,clear,setCoordinates};
+document.getElementById("sort-mode").addEventListener("change",e=>setSort(e.target.value));
+window.BuddyResults={render,clear,setCoordinates,setSort};
 })();
