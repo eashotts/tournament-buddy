@@ -18,6 +18,7 @@ document.getElementById("search").addEventListener("submit",async e=>{
   document.getElementById("live-roster").append(summary);
   if(window.BuddyMapUI)window.BuddyMapUI.update(roster.players);
   if(window.BuddyLodging)window.BuddyLodging.setEvent(url,roster.metadata);
+  if(window.BuddyTravel)window.BuddyTravel.setEvent(roster.players,player,roster.metadata);
   status.textContent="Step 2 of 2: comparing tournament histories for "+roster.players.length+" players…";
   const histories={};histories[player]=await PDGAData.history(player);if(!histories[player].length)throw Error("No recognizable event IDs in your history response.");
   const candidates=roster.players.filter(p=>p.pdgaNumber!==player),queue=[...candidates];let done=0,failed=0;
