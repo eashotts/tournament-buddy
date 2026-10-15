@@ -4,15 +4,10 @@
 "use strict";
 const base="https://www.pdga.com/apps/tournament/live-api";
 async function json(url){const r=await fetch(url,{headers:{Accept:"application/json"}});if(!r.ok)throw Error("PDGA returned HTTP "+r.status);const body=await r.json();return Object.prototype.hasOwnProperty.call(body,"data")?body.data:body;}
-function eventId(input){const m=String(input).match(/(?:\/tour\/event\/|\/live\/event\/)([1-9]\d*)/);if(!m)throw Error("Use a PDGA event or Live event URL");return m[1];}
-function discGolfSceneUrl(input){try{const url=new URL(String(input).trim());return /^https?:$/.test(url.protocol)&&/^(?:www\.)?discgolfscene\.com$/i.test(url.hostname)&&/^\/tournament\/[^/]+/.test(url.pathname);}catch{return false;}}
-function extractPdgaLink(html){const documentHtml=String(html||"").replace(/&amp;/g,"&");const matches=[...documentHtml.matchAll(/https?:\/\/(?:www\.)?pdga\.com\/(?:tour|live)\/event\/[1-9]\d*/gi)];return matches.length?matches[0][0]:null;}
-async function resolveEventUrl(input){const raw=String(input||"").trim();if(!discGolfSceneUrl(raw)){eventId(raw);return raw;}
- let response;try{response=await fetch(raw,{headers:{Accept:"text/html"}});}catch{throw Error("Disc Golf Scene does not permit this browser to read its About page. Open the tournament on Disc Golf Scene, select 'Event at PDGA.com', and paste that PDGA link here instead.");}
- if(!response.ok)throw Error("Disc Golf Scene returned HTTP "+response.status+". Please copy its 'Event at PDGA.com' link instead.");
- const pdgaLink=extractPdgaLink(await response.text());if(!pdgaLink)throw Error("No PDGA event link was found on that Disc Golf Scene page. Open the event's About tab and copy the 'Event at PDGA.com' link.");
- return pdgaLink;
-}
+function eventId(input){const raw=String(input).trim();if(/^[1-9]\\d*$/.test(raw))return raw;const m=raw.match(/^https?:\\/\\/(?:www\\.)?pdga\\.com\\/(?:tour\\/event\\/|live\\/event\\/)([1-9]\\d*)(?:[/?#]|$)/i);if(!m)throw Error("Use a PDGA event or Live event URL");return m[1];}
+function resolveEventUrl(input){const raw=String(input||"").trim();const id=/^[1-9]\d*$/.test(raw)?raw:eventId(raw);return Promise.resolve("https://www.pdga.com/tour/event/"+id);}
+function searchEvents(query){return json(base+"/live_results_fetch_events_by_query?Query="+encodeURIComponent(query));}
+function recentEvents(){return json(base+"/live_results_fetch_recent_events_grouped");}
 function divisionCodes(event){const raw=event?.Divisions||event?.divisions||[];const rows=Array.isArray(raw)?raw:Object.entries(raw).map(([code,val])=>({code,...(val&&typeof val==="object"?val:{})}));return [...new Set(rows.map(d=>String(d.Division||d.division||d.code||d.DivisionCode||d.Code||"").toUpperCase()).filter(x=>/^[A-Z]{2,4}\d{0,2}$/.test(x)))];}
 function extractRows(payload,code){const blocks=Array.isArray(payload)?payload:[payload];const result=[];for(const block of blocks){if(!block||typeof block!=="object")continue;for(const row of block.scores||block.Scores||[]){const number=Number(row.PDGANum);if(!Number.isSafeInteger(number)||number<=0)continue;result.push({pdgaNumber:String(number),name:String(row.Name||"PDGA #"+number),division:String(row.Division||block.division||code),city:String(row.City||""),state:String(row.StateProv||""),country:String(row.Country||"USA"),status:"registered"});}}return result;}
 async function registration(event){const id=eventId(event);const metadata=await json(base+"/live_results_fetch_event?TournID="+id);const divisions=divisionCodes(metadata);if(!divisions.length)throw Error("PDGA Live has no division codes for this event. A pre-event registration endpoint may be needed.");
@@ -50,5 +45,5 @@ function titleFrom(value,depth=0){if(depth>3||!value||typeof value!=="object")re
 function pumpTitles(){while(activeTitles<3&&titleQueue.length){const job=titleQueue.shift();activeTitles++;json(base+"/live_results_fetch_event?TournID="+encodeURIComponent(job.id)).then(payload=>job.resolve(titleFrom(payload))).catch(()=>job.resolve(null)).finally(()=>{activeTitles--;pumpTitles();});}}
 function eventTitle(id){const key=String(id);if(!/^[1-9][0-9]*$/.test(key))return Promise.resolve(null);if(!titleCache.has(key))titleCache.set(key,new Promise(resolve=>{titleQueue.push({id:key,resolve});pumpTitles();}));return titleCache.get(key);}
 async function history(playerId){if(!/^[1-9]\d*$/.test(String(playerId)))throw Error("Invalid PDGA number");return historyRows(await json("https://www.pdga.com/api/v1/feat/members/"+playerId+"/results"));}
-return {eventId,resolveEventUrl,discGolfSceneUrl,extractPdgaLink,divisionCodes,extractRows,registration,historyRows,history,eventTitle};
+return {eventId,resolveEventUrl,searchEvents,recentEvents,divisionCodes,extractRows,registration,historyRows,history,eventTitle};
 });
