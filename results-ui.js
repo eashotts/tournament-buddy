@@ -14,11 +14,13 @@ function eventChoices(players,selection,changed){
  }
  const details=node("details","filter-menu"),summary=node("summary","","Events ("+selection.size+")"),body=node("div","filter-options");
  details.append(summary);
+ const pending=[];
+ details.addEventListener("toggle",()=>{if(details.open)for(const resolve of pending.splice(0))resolve();});
  for(const [id,entry] of [...events].sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")||a[0].localeCompare(b[0]))){
   const row=node("label","filter-check"),check=document.createElement("input"),label=node("span","",entry.name||"Loading tournament name…");
   check.type="checkbox";check.checked=selection.has(id);check.addEventListener("change",()=>{check.checked?selection.add(id):selection.delete(id);summary.textContent="Events ("+selection.size+")";changed();});
   row.append(check,label);body.append(row);
-  if(!entry.name){PDGAData.eventTitle(id).then(title=>{label.textContent=title||"PDGA event #"+id;}).catch(()=>{label.textContent="PDGA event #"+id;});}
+  if(!entry.name)pending.push(()=>PDGAData.eventTitle(id).then(title=>{label.textContent=title||"PDGA event #"+id;}).catch(()=>{label.textContent="PDGA event #"+id;}));
  }
  details.append(body);return details;
 }
