@@ -39,7 +39,9 @@ function compare(a,b){
  if(sortMode==="recent")return latest(b)-latest(a)||fallback;
  if(sortMode==="shared")return fallback;
  if(sortMode==="division")return b.sameDivisionCount-a.sameDivisionCount||fallback;
- return (Number.isFinite(distance(a))&&Number.isFinite(distance(b))?distance(a)-distance(b):priority(a)-priority(b))||fallback;
+ const da=distance(a),db=distance(b);if(Number.isFinite(da)&&Number.isFinite(db))return da-db||fallback;
+ if(Number.isFinite(da)!==Number.isFinite(db))return Number.isFinite(da)?-1:1;
+ return priority(a)-priority(b)||fallback;
 }
 function draw(){host.replaceChildren();const visible=all.filter(p=>matches(p)&&(!window.BuddyTravel?.isFilterActive()||window.BuddyTravel.matches(p))).sort(compare),page=visible.slice(0,shown);
 document.getElementById("visible-count").textContent="Showing "+page.length+" of "+visible.length+" matching players"+(visible.length!==all.length?" ("+all.length+" total)":"");
@@ -54,9 +56,9 @@ table.append(tbody);host.append(table);if(shown<visible.length){const more=node(
 }
 function syncMap(){if(window.BuddyMapUI)window.BuddyMapUI.filterMatched(all.filter(p=>matches(p)&&(!window.BuddyTravel?.isFilterActive()||window.BuddyTravel.matches(p))));}
 function setSort(value){sortMode=value;shown=pageSize;draw();}
-function render(result,roster,playerId){shown=pageSize;all=result.matches;active={states:new Set(),cities:new Set(),events:new Set()};const self=roster.find(p=>p.pdgaNumber===playerId);home=self?.city&&self?.state?{city:self.city,state:self.state}:null;document.getElementById("sort-note").textContent=home?"Nearby first: "+home.city+", "+home.state+" (same city, then state; precise distance unavailable).":"Home location unavailable from PDGA; sorting by shared events, then same-division overlaps.";document.getElementById("count-matches").textContent=all.length;document.getElementById("count-events").textContent=Math.max(0,...all.map(p=>p.sharedCount));refreshControls();draw();syncMap();}
-function setCoordinates(map){coordinates=map;if(window.BuddyTravel)window.BuddyTravel.setCoordinates(map); if(all.length){document.getElementById("sort-note").textContent=home?"Sorted by approximate hometown distance where mapped, then shared events and same-division overlaps. Unmapped cities use city/state proximity tiers.":"Home location unavailable from PDGA; sorted by shared events and same-division overlaps.";draw();}}
-function clear(){shown=pageSize;all=[];active={states:new Set(),cities:new Set(),events:new Set()};host.replaceChildren();filters.replaceChildren();document.getElementById("visible-count").textContent="";document.getElementById("sort-note").textContent="";}
+function render(result,roster,playerId){coordinates=new Map();shown=pageSize;all=result.matches;active={states:new Set(),cities:new Set(),events:new Set()};const self=roster.find(p=>p.pdgaNumber===playerId);home=self?.city&&self?.state?{city:self.city,state:self.state}:null;document.getElementById("sort-note").textContent=home?"Nearby first: "+home.city+", "+home.state+" (same city, then state; precise distance unavailable).":"Home location unavailable from PDGA; sorting by shared events, then same-division overlaps.";document.getElementById("count-matches").textContent=all.length;document.getElementById("count-events").textContent=Math.max(0,...all.map(p=>p.sharedCount));refreshControls();draw();syncMap();if(home&&window.BuddyMapUI?.setHome)window.BuddyMapUI.setHome(self);}
+function setCoordinates(map){for(const [key,point] of map)coordinates.set(key,point);if(window.BuddyTravel)window.BuddyTravel.setCoordinates(map); if(all.length){document.getElementById("sort-note").textContent=home?(coordinates.has(home.city+"|"+home.state)?"Sorted by approximate city-center distance from "+home.city+", "+home.state+". Hometowns still being located may change order.":"Locating your hometown and other players’ cities to calculate nearest-first order…"):"Home location unavailable from PDGA; sorted by shared events and same-division overlaps.";draw();}}
+function clear(){coordinates=new Map();home=null;shown=pageSize;all=[];active={states:new Set(),cities:new Set(),events:new Set()};host.replaceChildren();filters.replaceChildren();document.getElementById("visible-count").textContent="";document.getElementById("sort-note").textContent="";}
 document.getElementById("sort-mode").addEventListener("change",e=>setSort(e.target.value));
 function refreshTravel(){shown=pageSize;draw();syncMap();}
 window.BuddyResults={render,clear,setCoordinates,setSort,refreshTravel};
