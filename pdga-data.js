@@ -28,7 +28,7 @@ function historyRows(payload){
   const id=String(row.tournId??row.TournID??row.eventId??row.event_id??"").trim();
   if(!/^[1-9][0-9]*$/.test(id))continue;
   const tournament=row.tournament&&typeof row.tournament==="object"?row.tournament:{};
-  const name=String(tournament.name??tournament.tournName??tournament.eventName??tournament.tournamentName??tournament.title??tournament.event_name??row.eventName??row.name??"Event #"+id);
+  const name=String((typeof row.tournament==="string"&&row.tournament.trim()?row.tournament:null)??tournament.name??tournament.tournName??tournament.eventName??tournament.tournamentName??tournament.title??tournament.event_name??row.eventName??row.name??"Event #"+id);
   const date=String(tournament.startDate??tournament.start_date??row.startDate??row.date??"");
   const division=String(row.division?.code??row.division?.division??row.division??"");
   const key=id+"|"+division;if(seen.has(key))continue;seen.add(key);
@@ -37,6 +37,10 @@ function historyRows(payload){
  if(!out.length)throw Error("No valid tournId values found inside PDGA liveResult records. No matches were calculated.");
  return out;
 }
+const titleCache=new Map();let activeTitles=0;const titleQueue=[];
+function titleFrom(value,depth=0){if(depth>3||!value||typeof value!=="object")return null;const names=["Name","TournName","TournamentName","EventName","name","tournName","tournamentName","eventName","title","Title"];for(const key of names){if(typeof value[key]==="string"&&value[key].trim())return value[key].trim();}for(const key of ["event","Event","tournament","Tournament","data"]){const found=titleFrom(value[key],depth+1);if(found)return found;}return null;}
+function pumpTitles(){while(activeTitles<3&&titleQueue.length){const job=titleQueue.shift();activeTitles++;json(base+"/live_results_fetch_event?TournID="+encodeURIComponent(job.id)).then(payload=>job.resolve(titleFrom(payload))).catch(()=>job.resolve(null)).finally(()=>{activeTitles--;pumpTitles();});}}
+function eventTitle(id){const key=String(id);if(!/^[1-9][0-9]*$/.test(key))return Promise.resolve(null);if(!titleCache.has(key))titleCache.set(key,new Promise(resolve=>{titleQueue.push({id:key,resolve});pumpTitles();}));return titleCache.get(key);}
 async function history(playerId){if(!/^[1-9]\d*$/.test(String(playerId)))throw Error("Invalid PDGA number");return historyRows(await json("https://www.pdga.com/api/v1/feat/members/"+playerId+"/results"));}
-return {eventId,divisionCodes,extractRows,registration,historyRows,history};
+return {eventId,divisionCodes,extractRows,registration,historyRows,history,eventTitle};
 });
