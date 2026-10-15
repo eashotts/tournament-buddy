@@ -9,13 +9,30 @@ function clear(){generation++;roster=[];matched=null;selected={states:new Set(),
 function filterMatched(matches){matched=matches;draw();}
 function update(players){roster=players;matched=null;selected={states:new Set(),cities:new Set(),events:new Set()};draw();}
 function selectGroup(label,values,selection,changed){const d=el("details","filter-menu");d.append(el("summary","",label+" ("+selection.size+")"));const opts=el("div","filter-options");for(const [v,n] of values){const row=el("label","filter-check"),c=document.createElement("input");c.type="checkbox";c.checked=selection.has(v);c.addEventListener("change",()=>{c.checked?selection.add(v):selection.delete(v);changed();});row.append(c,document.createTextNode(v+" ("+n+")"));opts.append(row);}d.append(opts);return d;}
+function eventChoices(players,selection,changed){
+ const events=new Map();
+ for(const p of players)for(const e of p.sharedEvents||[]){
+  const id=String(e.eventId),known=e.name&&!/^Event #/i.test(e.name)&&e.name!=="PDGA tournament";
+  if(!events.has(id))events.set(id,{count:0,name:known?e.name:null});
+  const entry=events.get(id);entry.count++;if(known)entry.name=e.name;
+ }
+ const details=el("details","filter-menu"),summary=el("summary","","Events ("+selection.size+")"),body=el("div","filter-options");
+ details.append(summary);
+ for(const [id,entry] of [...events].sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")||a[0].localeCompare(b[0]))){
+  const row=el("label","filter-check"),check=document.createElement("input"),label=el("span","",entry.name||"Loading tournament name…");
+  check.type="checkbox";check.checked=selection.has(id);check.addEventListener("change",()=>{check.checked?selection.add(id):selection.delete(id);summary.textContent="Events ("+selection.size+")";changed();});
+  row.append(check,label);body.append(row);
+  if(!entry.name){PDGAData.eventTitle(id).then(title=>{label.textContent=title||"PDGA event #"+id;}).catch(()=>{label.textContent="PDGA event #"+id;});}
+ }
+ details.append(body);return details;
+}
 function options(players,fn){const m=new Map();for(const p of players)for(const v of fn(p))if(v)m.set(v,(m.get(v)||0)+1);return [...m].sort((a,b)=>a[0].localeCompare(b[0]));}
 function groupPlayers(players){return BuddyLocations.group(players).locations;}
 function panel(g){listing.replaceChildren();listing.append(el("h3","",g.city+", "+g.state+" · "+g.count));for(const p of g.players){const row=el("div","map-player");row.append(el("span","",p.name+" · "+p.division));if(/^\d+$/.test(p.pdgaNumber)){const a=el("a","","#"+p.pdgaNumber+" ↗");a.href="https://www.pdga.com/player/"+p.pdgaNumber;a.target="_blank";a.rel="noopener noreferrer";row.append(a);}listing.append(row);}}
 function draw(){generation++;const token=generation;if(layer)layer.clearLayers();buttons.replaceChildren();listing.replaceChildren();if(!roster.length)return;
 tag.textContent="PDGA HOMETOWNS";
 const available=matched===null?roster:roster.filter(p=>matched.some(m=>m.pdgaNumber===p.pdgaNumber));
-const filtered=available.filter(p=>(!selected.states.size||selected.states.has(p.state||"Unknown"))&&(!selected.cities.size||selected.cities.has(key(p)||"Unknown"))&&(!selected.events.size||matched?.some(m=>m.pdgaNumber===p.pdgaNumber&&m.sharedEvents.some(e=>selected.events.has(e.eventId+" · "+e.name)))));
+const filtered=available.filter(p=>(!selected.states.size||selected.states.has(p.state||"Unknown"))&&(!selected.cities.size||selected.cities.has(key(p)||"Unknown"))&&(!selected.events.size||matched?.some(m=>m.pdgaNumber===p.pdgaNumber&&m.sharedEvents.some(e=>selected.events.has(String(e.eventId))))));
 const grouped=groupPlayers(filtered);const unknown=filtered.length-grouped.reduce((n,g)=>n+g.count,0);
 summary.textContent=filtered.length+" players · "+grouped.length+" cities · "+unknown+" undisclosed/unknown. "+(matched===null?"Full available Live roster.":"Only matching players.");
 const refresh=()=>draw();const controls=el("div","filter-bar");
@@ -23,7 +40,7 @@ const cityCandidates=selected.states.size?available.filter(p=>selected.states.ha
 const validCities=new Set(cityCandidates.map(p=>key(p)||"Unknown"));
 for(const city of [...selected.cities])if(!validCities.has(city))selected.cities.delete(city);
 controls.append(selectGroup("State",options(available,p=>[p.state||"Unknown"]),selected.states,refresh),selectGroup("City",options(cityCandidates,p=>[key(p)||"Unknown"]),selected.cities,refresh));
-if(matched!==null)controls.append(selectGroup("Event",options(matched,p=>p.sharedEvents.map(e=>e.eventId+" · "+e.name)),selected.events,refresh));
+if(matched!==null)controls.append(eventChoices(matched,selected.events,refresh));
 const reset=el("button","city-option","Clear");reset.type="button";reset.addEventListener("click",()=>{selected={states:new Set(),cities:new Set(),events:new Set()};draw();});controls.append(reset);buttons.append(controls);
 if(!grouped.length){listing.textContent="No cities match the selected filters.";return;}
 const groups=el("div","map-city-list");for(const g of grouped){const b=el("button","city-option",g.city+", "+g.state+" · "+g.count);b.type="button";b.addEventListener("click",()=>{panel(g);const point=cache.get(g.city+"|"+g.state+"|"+g.country);if(point&&map)map.flyTo(point,10);});groups.append(b);}buttons.append(groups);
