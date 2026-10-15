@@ -4,7 +4,7 @@
 "use strict";
 const base="https://www.pdga.com/apps/tournament/live-api";
 async function json(url){const r=await fetch(url,{headers:{Accept:"application/json"}});if(!r.ok)throw Error("PDGA returned HTTP "+r.status);const body=await r.json();return Object.prototype.hasOwnProperty.call(body,"data")?body.data:body;}
-function eventId(input){const raw=String(input).trim();if(/^[1-9]\\d*$/.test(raw))return raw;const m=raw.match(/^https?:\\/\\/(?:www\\.)?pdga\\.com\\/(?:tour\\/event\\/|live\\/event\\/)([1-9]\\d*)(?:[/?#]|$)/i);if(!m)throw Error("Use a PDGA event or Live event URL");return m[1];}
+function eventId(input){const raw=String(input).trim();if(/^[1-9][0-9]*$/.test(raw))return raw;const m=raw.match(/^https?:\/\/(?:www\.)?pdga\.com\/(?:tour\/event\/|live\/event\/)([1-9][0-9]*)(?:[/?#]|$)/i);if(!m)throw Error("Enter a PDGA event URL or event ID.");return m[1];}
 function resolveEventUrl(input){const raw=String(input||"").trim();const id=/^[1-9]\d*$/.test(raw)?raw:eventId(raw);return Promise.resolve("https://www.pdga.com/tour/event/"+id);}
 function searchEvents(query){return json(base+"/live_results_fetch_events_by_query?Query="+encodeURIComponent(query));}
 function recentEvents(){return json(base+"/live_results_fetch_recent_events_grouped");}
