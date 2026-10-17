@@ -40,6 +40,7 @@ document.getElementById("search").addEventListener("submit",async e=>{
    const pending=matches.filter(p=>!loadedHometowns.has(p.pdgaNumber));
    if(!pending.length||token!==searchToken)return;
    for(const p of pending)loadedHometowns.add(p.pdgaNumber);
+   status.textContent="Loading hometowns for "+pending.length+" additional players…";
    try{
     const records=await PDGAData.batchPlayers(pending.map(p=>p.pdgaNumber));
     if(token!==searchToken)return;
@@ -52,9 +53,10 @@ document.getElementById("search").addEventListener("submit",async e=>{
     }
     BuddyResults.refreshHometowns();
     if(window.BuddyMapUI)window.BuddyMapUI.update(roster.players);
+    status.textContent="Loaded additional hometowns for "+pending.length+" players.";
    }catch(err){
     for(const p of pending)loadedHometowns.delete(p.pdgaNumber);
-    status.textContent="Additional hometowns temporarily unavailable; try Load 10 more again.";
+    status.textContent="Additional hometown lookup failed ("+err.message+"). Retry by loading more players or rerunning the search.";
    }
   };
   BuddyResults.render(result,roster.players,player,loadMoreHometowns);document.getElementById("result-label").textContent="PDGA LIVE · "+(failed?"PARTIAL HISTORIES":"HISTORIES COMPARED");
