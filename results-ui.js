@@ -51,7 +51,13 @@ const action=node("td"),btn=node("button","city-option","Expand ▾");btn.type="
 const detail=document.createElement("tr");detail.hidden=true;const cell=document.createElement("td");cell.colSpan=6;const inner=node("div","buddy-detail");inner.append(node("strong","",p.sharedCount+" shared tournaments · Familiarity score "+familiarity(p)));
 const unresolved=[];for(const e of p.sharedEvents){const line=node("div","buddy-event");const known=e.name&&!/^Event #/.test(e.name)&&e.name!=="PDGA tournament";const a=node("a","",known?e.name:"Loading tournament name…");if(!known)unresolved.push({eventId:e.eventId,link:a});a.href="https://www.pdga.com/tour/event/"+encodeURIComponent(e.eventId);a.target="_blank";a.rel="noopener noreferrer";line.append(a);if(e.date)line.append(node("span","meta"," · "+e.date));line.append(node("div","division",e.sameDivision?"✓ Same division: "+e.myDivisions.filter(d=>e.theirDivisions.includes(d)).join(", "):"Different divisions"));inner.append(line);}
 cell.append(inner);detail.append(cell);tbody.append(detail);let requested=false;btn.addEventListener("click",()=>{detail.hidden=!detail.hidden;btn.textContent=detail.hidden?"Expand ▾":"Collapse ▴";if(!detail.hidden&&!requested){requested=true;for(const item of unresolved){PDGAData.eventTitle(item.eventId).then(title=>{item.link.textContent=title||"PDGA event #"+item.eventId;});}}});}
-table.append(tbody);host.append(table);if(shown<visible.length){const more=node("button","load-more","Load 10 more players ("+(visible.length-shown)+" remaining) ↓");more.type="button";more.addEventListener("click",async()=>{shown+=pageSize;draw();if(loadMoreHometowns)await loadMoreHometowns(all.filter(p=>matches(p)).sort(compare).slice(Math.max(0,shown-pageSize),shown));});host.append(more);}if(!visible.length)host.append(node("p","meta","No players match these filters."));
+table.append(tbody);host.append(table);if(shown<visible.length){const more=node("button","load-more","Load 10 more players ("+(visible.length-shown)+" remaining) ↓");more.type="button";more.addEventListener("click",async()=>{
+  const previous=shown;
+  const visible=all.filter(p=>matches(p)&&(!window.BuddyTravel?.isFilterActive()||window.BuddyTravel.matches(p))).sort(compare);
+  const newlyVisible=visible.slice(previous,previous+pageSize);
+  shown+=pageSize;draw();
+  if(loadMoreHometowns)await loadMoreHometowns(newlyVisible);
+ });host.append(more);}if(!visible.length)host.append(node("p","meta","No players match these filters."));
 
 }
 function syncMap(){if(window.BuddyMapUI)window.BuddyMapUI.filterMatched(all.filter(p=>matches(p)&&(!window.BuddyTravel?.isFilterActive()||window.BuddyTravel.matches(p))));}
