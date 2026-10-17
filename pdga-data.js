@@ -3,6 +3,11 @@
 (function(root,factory){const api=factory();if(typeof module==="object"&&module.exports)module.exports=api;root.PDGAData=api;})(typeof globalThis!=="undefined"?globalThis:this,function(){
 "use strict";
 const base="https://www.pdga.com/apps/tournament/live-api";
+const workerBase="https://tournament-buddy-api.eashotts.workers.dev";
+async function workerJson(path,options){const response=await fetch(workerBase+path,{...options,headers:{Accept:"application/json",...(options?.headers||{})}});if(!response.ok)throw Error("Player directory unavailable (HTTP "+response.status+")");return response.json();}
+async function searchPlayers(first,last){const params=new URLSearchParams({first_name:first,last_name:last});const result=await workerJson("/api/players/search?"+params);return result.players||[];}
+async function batchPlayers(numbers){const result=await workerJson("/api/players/batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pdga_numbers:numbers.map(String)})});return result.results||[];}
+async function enrichHometowns(players,{onProgress}={}){let enriched=0,failed=0;for(let i=0;i<players.length;i+=10){const chunk=players.slice(i,i+10);try{const records=await batchPlayers(chunk.map(p=>p.pdgaNumber));const byId=new Map(records.filter(r=>r.found&&r.player).map(r=>[String(r.pdga_number),r.player]));for(const p of chunk){const details=byId.get(String(p.pdgaNumber));if(details){p.city=details.city||p.city;p.state=details.state_prov||p.state;p.country=details.country||p.country;enriched++;}}}catch{failed+=chunk.length;}onProgress?.({enriched,failed,total:players.length});}return {enriched,failed};}
 async function json(url){const r=await fetch(url,{headers:{Accept:"application/json"}});if(!r.ok)throw Error("PDGA returned HTTP "+r.status);const body=await r.json();return Object.prototype.hasOwnProperty.call(body,"data")?body.data:body;}
 function eventId(input){const raw=String(input).trim();if(/^[1-9][0-9]*$/.test(raw))return raw;const m=raw.match(/^https?:\/\/(?:www\.)?pdga\.com\/(?:tour\/event\/|live\/event\/)([1-9][0-9]*)(?:[/?#]|$)/i);if(!m)throw Error("Enter a PDGA event URL or event ID.");return m[1];}
 function resolveEventUrl(input){const raw=String(input||"").trim();const id=/^[1-9]\d*$/.test(raw)?raw:eventId(raw);return Promise.resolve("https://www.pdga.com/tour/event/"+id);}
@@ -56,5 +61,5 @@ function titleFrom(value,depth=0){if(depth>3||!value||typeof value!=="object")re
 function pumpTitles(){while(activeTitles<3&&titleQueue.length){const job=titleQueue.shift();activeTitles++;json(base+"/live_results_fetch_event?TournID="+encodeURIComponent(job.id)).then(payload=>job.resolve(titleFrom(payload))).catch(()=>job.resolve(null)).finally(()=>{activeTitles--;pumpTitles();});}}
 function eventTitle(id){const key=String(id);if(!/^[1-9][0-9]*$/.test(key))return Promise.resolve(null);if(!titleCache.has(key))titleCache.set(key,new Promise(resolve=>{titleQueue.push({id:key,resolve});pumpTitles();}));return titleCache.get(key);}
 async function history(playerId){if(!/^[1-9]\d*$/.test(String(playerId)))throw Error("Invalid PDGA number");return historyRows(await json("https://www.pdga.com/api/v1/feat/members/"+playerId+"/results"));}
-return {eventId,resolveEventUrl,searchEvents,recentEvents,divisionCodes,extractRows,registration,historyRows,history,eventTitle};
+return {eventId,resolveEventUrl,searchEvents,recentEvents,divisionCodes,extractRows,registration,historyRows,history,eventTitle,searchPlayers,batchPlayers,enrichHometowns};
 });

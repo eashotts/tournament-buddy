@@ -45,8 +45,7 @@ controls.append(selectGroup("State",options(available,p=>[p.state||"Unknown"]),s
 if(matched!==null)controls.append(eventChoices(matched,selected.events,refresh));
 const reset=el("button","city-option","Clear");reset.type="button";reset.addEventListener("click",()=>{selected={states:new Set(),cities:new Set(),events:new Set()};draw();});controls.append(reset);buttons.append(controls);
 if(!grouped.length){listing.textContent="No cities match the selected filters.";return;}
-const groups=el("div","map-city-list");for(const g of grouped){const b=el("button","city-option",g.city+", "+g.state+" · "+g.count);b.type="button";b.addEventListener("click",()=>{panel(g);const point=cache.get(g.city+"|"+g.state+"|"+g.country);if(point&&map)map.flyTo(point,10);});groups.append(b);}buttons.append(groups);
-listing.textContent="Select a city or numbered marker to see its players. Map coordinates are approximate city centers.";
+listing.textContent="Use the State and City dropdown filters above, or click a numbered map marker to see its players. Map coordinates are approximate city centers.";
 if(map)geocodeGroups(grouped,token);
 }
 async function geocode(g){const k=g.city+"|"+g.state+"|"+g.country;if(cache.has(k))return cache.get(k);
