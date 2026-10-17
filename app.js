@@ -16,6 +16,8 @@ document.getElementById("search").addEventListener("submit",async e=>{
   const roster=await PDGAData.registration(pdgaUrl);if(token!==searchToken)return;
   const summary=el("p","meta",roster.players.length+" players · "+roster.divisions.length+" divisions · PDGA Live player records");
   document.getElementById("live-roster").append(summary);
+  status.textContent="Loading available player hometowns…";
+  const hometowns=await PDGAData.enrichHometowns(roster.players);if(token!==searchToken)return;
   if(window.BuddyMapUI)window.BuddyMapUI.update(roster.players);
   if(window.BuddyLodging)window.BuddyLodging.setEvent(pdgaUrl,roster.metadata);
   if(window.BuddyTravel)window.BuddyTravel.setEvent(roster.players,player,roster.metadata);
@@ -29,7 +31,7 @@ document.getElementById("search").addEventListener("submit",async e=>{
   await Promise.all(workers);if(token!==searchToken)return;
   const result=TournamentBuddy.matchBuddies({playerId:player,registrants:roster.players,historyByPlayer:histories});
   BuddyResults.render(result,roster.players,player);document.getElementById("result-label").textContent="PDGA LIVE · "+(failed?"PARTIAL HISTORIES":"HISTORIES COMPARED");
-  status.textContent=result.matches.length+" familiar players found among "+result.comparedCount+" comparable histories. "+failed+" histories unavailable; missing histories are not counted as nonmatches. Player hometowns are not included in this endpoint.";
+  status.textContent=result.matches.length+" familiar players found among "+result.comparedCount+" comparable histories. "+failed+" histories unavailable; missing histories are not counted as nonmatches. Hometowns found for "+hometowns.enriched+" players; "+hometowns.failed+" hometown lookups unavailable.";
  }catch(err){if(token===searchToken){status.textContent="Search unavailable: "+err.message+" Results may be incomplete.";document.getElementById("result-label").textContent="SEARCH INCOMPLETE";}}
  finally{if(token===searchToken){button.disabled=false;button.textContent="Find my buddies ↗";}}
 });
